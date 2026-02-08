@@ -1,0 +1,43 @@
+name: Agent
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+jobs:
+  notify-agent:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts
+
+      - name: Call Agent Service
+        env:
+          AGENT_URL: ${{ secrets.AGENT_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          REPO: ${{ github.event.workflow_run.repository.full_name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # In a real scenario, you would send the artifact content or location to the agent
+          # For now, we just ping the agent
+          curl -X POST "$AGENT_URL/webhook" \
+            -H "X-GitHub-Event: workflow_run" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "workflow_run": {
+                "id": '"$RUN_ID"',
+                "conclusion": "${{ github.event.workflow_run.conclusion }}"
+              },
+              "repository": {
+                "full_name": "'"$REPO"'"
+              },
+              "head_sha": "'"$HEAD_SHA"'"
+            }'
