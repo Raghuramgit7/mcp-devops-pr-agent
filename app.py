@@ -14,3 +14,7 @@ def divide(a, b):
 
 if __name__ == "__main__":
     print("Simple Calculator App")
+
+def power(a, b):
+    # This function intentionally has no docstring to test the AI agent
+    return a ** b
