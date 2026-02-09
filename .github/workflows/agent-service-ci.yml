@@ -1,0 +1,42 @@
+name: Agent Service CI
+
+on:
+  push:
+    paths:
+      - 'agent_service/**'
+      - 'mcp_servers/**'
+  pull_request:
+    paths:
+      - 'agent_service/**'
+      - 'mcp_servers/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f agent_service/requirements.txt ]; then pip install -r agent_service/requirements.txt; fi
+          pip install pytest flake8 bandit
+          
+      - name: Run Linting
+        run: |
+          flake8 agent_service
+          
+      - name: Run Security Scan
+        run: |
+          bandit -r agent_service
+          
+      - name: Run Tests
+        run: |
+          # If we had tests in agent_service/tests
+          # pytest agent_service/tests
+          echo "No tests defined yet for agent service"

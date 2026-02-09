@@ -1,0 +1,9 @@
+# Bandit configuration
+exclude_dirs: ['venv', 'tests', '.git', 'docs', 'infra']
+# Profiles
+profiles:
+    gate:
+        include:
+            - any_other_checks_you_want
+# To ignore specific checks:
+# skips: ['B101', 'B601']
