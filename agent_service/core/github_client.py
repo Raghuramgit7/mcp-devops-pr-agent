@@ -1,8 +1,9 @@
+import logging
 import os
 from github import Github, Auth, GithubIntegration
-import logging
 
 logger = logging.getLogger(__name__)
+
 
 def get_github_client(installation_id: int) -> Github:
     """
@@ -11,20 +12,20 @@ def get_github_client(installation_id: int) -> Github:
     """
     app_id = os.getenv("APP_ID")
     private_key_path = os.getenv("PRIVATE_KEY_PATH")
-    
+
     if not app_id:
         raise ValueError("APP_ID environment variable is not set")
     if not private_key_path:
         raise ValueError("PRIVATE_KEY_PATH environment variable is not set")
-        
+
     # Ensure full path if relative is provided
     if not os.path.isabs(private_key_path):
         # Assuming run from project root or agent_service root, this might be tricky.
         # Let's try to resolve it relative to CWD first.
         if not os.path.exists(private_key_path):
-             # Try relative to the location of this file/module if needed, 
-             # but for now rely on CWD being project root.
-             pass
+            # Try relative to the location of this file/module if needed,
+            # but for now rely on CWD being project root.
+            pass
 
     try:
         with open(private_key_path, "r") as f:
@@ -35,10 +36,11 @@ def get_github_client(installation_id: int) -> Github:
 
     auth = Auth.AppAuth(app_id=app_id, private_key=private_key)
     integration = GithubIntegration(auth=auth)
-    
+
     # Get a client authenticated as the installation
     # This automatically handles token refresh
     return integration.get_github_for_installation(installation_id)
+
 
 def post_comment(installation_id: int, repo_name: str, issue_number: int, body: str):
     """
