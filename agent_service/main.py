@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, HTTPException
 import os
 import logging
 import asyncio
+import uuid
 from dotenv import load_dotenv
 
 # Load .env file from the same directory as this file
@@ -51,7 +52,9 @@ async def distinct_webhook(request: Request):
         repo_info = payload.get("repository", {})
         repo_name = repo_info.get("full_name")
         
-        logger.info(f"PR #{pr_number} in {repo_name} was {action}")
+        # Generate conversation ID for end-to-end tracing
+        conversation_id = str(uuid.uuid4())
+        logger.info(f"[{conversation_id}] PR #{pr_number} in {repo_name} was {action}")
 
         if action in ["opened", "synchronize", "reopened"]:
             # 1. Post a "Hello World" greeting
@@ -70,33 +73,33 @@ async def distinct_webhook(request: Request):
                                f"I was able to read your README using my MCP tool:\n"
                                f"```\n{readme_snippet}...\n```")
                     except Exception as mcp_error:
-                        logger.error(f"MCP Tool call failed: {mcp_error}")
+                        logger.error(f"[{conversation_id}] MCP Tool call failed: {mcp_error}")
                         msg = f"Hello! I tried to read your README but failed: {mcp_error}"
 
                     post_comment(installation_id, repo_name, pr_number, msg)
                 except Exception as e:
-                    logger.error(f"Failed to post greeting: {e}")
+                    logger.error(f"[{conversation_id}] Failed to post greeting: {e}")
             
             # 2. Trigger AI Review tasks with staggered delays to avoid 429 Rate Limits
             if installation_id and repo_name and pr_number:
-                logger.info(f"Scheduling staggered AI tasks for PR #{pr_number}")
+                logger.info(f"[{conversation_id}] Scheduling staggered AI tasks for PR #{pr_number}")
                 
                 async def run_staggered():
                     # 1. Reviewer starts first
                     await asyncio.sleep(5) 
-                    asyncio.create_task(review_pr(installation_id, repo_name, pr_number))
+                    asyncio.create_task(review_pr(installation_id, repo_name, pr_number, conversation_id))
                     
                     # 2. Doc Checker starts at T+35
                     await asyncio.sleep(30) 
-                    asyncio.create_task(check_pr_docs(installation_id, repo_name, pr_number))
+                    asyncio.create_task(check_pr_docs(installation_id, repo_name, pr_number, conversation_id))
                     
                     # 3. Quality Checker starts at T+65
                     await asyncio.sleep(30)
-                    asyncio.create_task(run_quality_review(installation_id, repo_name, pr_number))
+                    asyncio.create_task(run_quality_review(installation_id, repo_name, pr_number, conversation_id))
 
                 asyncio.create_task(run_staggered())
             else:
-                logger.warning("Skipping AI review: missing installation_id, repo_name, or pr_number")
+                logger.warning(f"[{conversation_id}] Skipping AI review: missing installation_id, repo_name, or pr_number")
         
     elif event_type == "workflow_run":
         action = payload.get("action")
@@ -104,8 +107,11 @@ async def distinct_webhook(request: Request):
         run_id = workflow_run.get("id")
         conclusion = workflow_run.get("conclusion")
         repo_name = payload.get("repository", {}).get("full_name")
+        installation_id = installation.get("id") if installation else None
         
-        logger.info(f"Workflow Run {run_id} {action} with conclusion {conclusion}")
+        # Generate conversation ID for end-to-end tracing of CI failures
+        conversation_id = str(uuid.uuid4())
+        logger.info(f"[{conversation_id}] Workflow Run {run_id} {action} with conclusion {conclusion}")
 
         if action == "completed" and conclusion == "failure":
             pull_requests = workflow_run.get("pull_requests", [])
@@ -114,13 +120,13 @@ async def distinct_webhook(request: Request):
                 pr_number = pull_requests[0].get("number")
             else:
                 branch = workflow_run.get("head_branch")
-                logger.debug(f"Workflow Run {run_id} failed on branch {branch}, but no PR found.")
+                logger.debug(f"[{conversation_id}] Workflow Run {run_id} failed on branch {branch}, but no PR found.")
             
             if pr_number:
-                logger.info(f"CI Failure detected in PR #{pr_number}. Triggering Fixer with stagger...")
+                logger.info(f"[{conversation_id}] CI Failure detected in PR #{pr_number}. Triggering Fixer with stagger...")
                 async def run_fixer_staggered():
                     await asyncio.sleep(10) # Avoid overlapping with other AI tasks
-                    asyncio.create_task(analyze_ci_failure(installation_id, repo_name, run_id, pr_number))
+                    asyncio.create_task(analyze_ci_failure(installation_id, repo_name, run_id, pr_number, conversation_id))
                 
                 asyncio.create_task(run_fixer_staggered())
 

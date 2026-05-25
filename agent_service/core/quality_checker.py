@@ -7,20 +7,20 @@ from .github_client import post_comment
 
 logger = logging.getLogger(__name__)
 
-async def run_quality_review(installation_id: int, repo_name: str, pr_number: int):
+async def run_quality_review(installation_id: int, repo_name: str, pr_number: int, conversation_id: str):
     """
     Runs security and quality scans via MCP, and uses Gemini to explain the findings.
     """
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        logger.error("GOOGLE_API_KEY not found")
+        logger.error(f"[{conversation_id}] GOOGLE_API_KEY not found")
         return
 
     client = genai.Client(api_key=api_key)
     model_id = "gemini-3-flash-preview"
 
     try:
-        logger.info(f"Starting quality review for {repo_name}#{pr_number}")
+        logger.info(f"[{conversation_id}] Starting quality review for {repo_name}#{pr_number}")
         
         # 1. Run Quality Checks via MCP
         owner, repo = repo_name.split("/")
@@ -62,13 +62,13 @@ async def run_quality_review(installation_id: int, repo_name: str, pr_number: in
             except Exception as e:
                 if "429" in str(e) and attempt < 2:
                     wait_time = (attempt + 1) * 45
-                    logger.warning(f"Rate limit hit in quality_checker. Retrying in {wait_time}s...")
+                    logger.warning(f"[{conversation_id}] Rate limit hit in quality_checker. Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                 else:
                     raise e
 
         if not response:
-            logger.error("Failed to get response from Gemini after retries")
+            logger.error(f"[{conversation_id}] Failed to get response from Gemini after retries")
             return
 
         summary = response.text
@@ -76,9 +76,9 @@ async def run_quality_review(installation_id: int, repo_name: str, pr_number: in
         if "Code quality and security look solid!" not in summary:
             msg = f"## 🛡️ Security & Quality Report\n\n{summary}"
             post_comment(installation_id, repo_name, pr_number, msg)
-            logger.info(f"Posted quality & security report for PR #{pr_number}")
+            logger.info(f"[{conversation_id}] Posted quality & security report for PR #{pr_number}")
         else:
-            logger.info("Quality review passed.")
+            logger.info(f"[{conversation_id}] Quality review passed.")
 
     except Exception as e:
-        logger.error(f"Failed to run quality review: {e}")
+        logger.error(f"[{conversation_id}] Failed to run quality review: {e}")

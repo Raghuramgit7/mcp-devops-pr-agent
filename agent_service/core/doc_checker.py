@@ -9,21 +9,21 @@ from .github_client import post_comment, get_github_client
 
 logger = logging.getLogger(__name__)
 
-async def check_pr_docs(installation_id: int, repo_name: str, pr_number: int):
+async def check_pr_docs(installation_id: int, repo_name: str, pr_number: int, conversation_id: str):
     """
     Analyzes the PR diff to see if documentation (docstrings, README) needs updates.
     If simple documentation fixes are identified, it attempts to apply them.
     """
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        logger.error("GOOGLE_API_KEY not found")
+        logger.error(f"[{conversation_id}] GOOGLE_API_KEY not found")
         return
 
     client = genai.Client(api_key=api_key)
     model_id = "gemini-3-flash-preview"
 
     try:
-        logger.info(f"Checking documentation for {repo_name}#{pr_number}")
+        logger.info(f"[{conversation_id}] Checking documentation for {repo_name}#{pr_number}")
         
         # 1. Fetch PR details for branch info
         gh = get_github_client(installation_id)
@@ -74,20 +74,20 @@ async def check_pr_docs(installation_id: int, repo_name: str, pr_number: int):
         for attempt in range(3):
             try:
                 response = client.models.generate_content(
-                    model=model_id,
-                    contents=prompt
+                     model=model_id,
+                     contents=prompt
                 )
                 break
             except Exception as e:
                 if "429" in str(e) and attempt < 2:
                     wait_time = (attempt + 1) * 40 # Staggered
-                    logger.warning(f"Rate limit hit in doc_checker. Retrying in {wait_time}s...")
+                    logger.warning(f"[{conversation_id}] Rate limit hit in doc_checker. Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                 else:
                     raise e
 
         if not response:
-            logger.error("Failed to get response from Gemini after retries")
+            logger.error(f"[{conversation_id}] Failed to get response from Gemini after retries")
             return
 
         ai_response = response.text
@@ -103,7 +103,7 @@ async def check_pr_docs(installation_id: int, repo_name: str, pr_number: int):
                 commit_msg = fix_data.get("commit_message", "docs: AI auto-generated docstrings")
                 
                 if file_path and new_content:
-                    logger.info(f"Attempting auto-docs fix for {file_path} on {branch_name}")
+                    logger.info(f"[{conversation_id}] Attempting auto-docs fix for {file_path} on {branch_name}")
                     await call_repo_tool("update_file", {
                         "owner": owner,
                         "repo": repo,
@@ -114,7 +114,7 @@ async def check_pr_docs(installation_id: int, repo_name: str, pr_number: int):
                     })
                     fix_applied = True
             except Exception as json_err:
-                logger.error(f"Failed to apply auto-docs JSON: {json_err}")
+                logger.error(f"[{conversation_id}] Failed to apply auto-docs JSON: {json_err}")
 
         # 5. Post Comment
         suggestions = ai_response
@@ -125,9 +125,9 @@ async def check_pr_docs(installation_id: int, repo_name: str, pr_number: int):
             
             msg = f"## 📚 Documentation Review\n\n{review_body}"
             post_comment(installation_id, repo_name, pr_number, msg)
-            logger.info(f"Posted documentation report for PR #{pr_number}")
+            logger.info(f"[{conversation_id}] Posted documentation report for PR #{pr_number}")
         else:
-            logger.info("Documentation check passed.")
+            logger.info(f"[{conversation_id}] Documentation check passed.")
 
     except Exception as e:
-        logger.error(f"Failed to check documentation: {e}")
+        logger.error(f"[{conversation_id}] Failed to check documentation: {e}")

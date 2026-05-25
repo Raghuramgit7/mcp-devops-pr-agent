@@ -9,21 +9,21 @@ from .github_client import post_comment, get_github_client
 
 logger = logging.getLogger(__name__)
 
-async def analyze_ci_failure(installation_id: int, repo_name: str, run_id: int, pr_number: int):
+async def analyze_ci_failure(installation_id: int, repo_name: str, run_id: int, pr_number: int, conversation_id: str):
     """
     Triggered when CI fails. Fetches logs, analyzes with Gemini, and posts suggestion.
     If a clear fix is identified, it attempts to apply it.
     """
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        logger.error("GOOGLE_API_KEY not found")
+        logger.error(f"[{conversation_id}] GOOGLE_API_KEY not found")
         return
 
     client = genai.Client(api_key=api_key)
     model_id = "gemini-3-flash-preview"
 
     try:
-        logger.info(f"Analyzing CI failure for run {run_id} in {repo_name}...")
+        logger.info(f"[{conversation_id}] Analyzing CI failure for run {run_id} in {repo_name}...")
         
         # 1. Fetch Logs via CI MCP
         owner, repo = repo_name.split("/")
@@ -35,7 +35,7 @@ async def analyze_ci_failure(installation_id: int, repo_name: str, run_id: int, 
         
         logs_text = logs_result.content[0].text if logs_result.content else ""
         if not logs_text:
-            logger.warning("No CI logs fetched.")
+            logger.warning(f"[{conversation_id}] No CI logs fetched.")
             return
 
         # 2. Fetch PR details to get branch name
@@ -85,13 +85,13 @@ async def analyze_ci_failure(installation_id: int, repo_name: str, run_id: int, 
             except Exception as e:
                 if "429" in str(e) and attempt < 2:
                     wait_time = (attempt + 1) * 50 # Fixer often has large logs, longer wait
-                    logger.warning(f"Rate limit hit in fixer. Retrying in {wait_time}s...")
+                    logger.warning(f"[{conversation_id}] Rate limit hit in fixer. Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                 else:
                     raise e
 
         if not response:
-            logger.error("Failed to get diagnosis from Gemini after retries")
+            logger.error(f"[{conversation_id}] Failed to get diagnosis from Gemini after retries")
             return
 
         analysis = response.text
@@ -107,7 +107,7 @@ async def analyze_ci_failure(installation_id: int, repo_name: str, run_id: int, 
                 commit_msg = fix_data.get("commit_message", "AI auto-fix for CI failure")
                 
                 if file_path and new_content:
-                    logger.info(f"Attempting auto-fix for {file_path} on {branch_name}")
+                    logger.info(f"[{conversation_id}] Attempting auto-fix for {file_path} on {branch_name}")
                     result = await call_repo_tool("update_file", {
                         "owner": owner,
                         "repo": repo,
@@ -116,10 +116,10 @@ async def analyze_ci_failure(installation_id: int, repo_name: str, run_id: int, 
                         "message": commit_msg,
                         "branch": branch_name
                     })
-                    logger.info(f"Auto-fix result: {result}")
+                    logger.info(f"[{conversation_id}] Auto-fix result: {result}")
                     fix_applied = True
             except Exception as json_err:
-                logger.error(f"Failed to parse or apply auto-fix JSON: {json_err}")
+                logger.error(f"[{conversation_id}] Failed to parse or apply auto-fix JSON: {json_err}")
 
         # 5. Post Comment
         review_body = analysis
@@ -128,7 +128,7 @@ async def analyze_ci_failure(installation_id: int, repo_name: str, run_id: int, 
         
         msg = f"## 🛠️ CI Failure Analysis\n\n{review_body}"
         post_comment(installation_id, repo_name, pr_number, msg)
-        logger.info(f"Posted CI analysis for PR #{pr_number}")
+        logger.info(f"[{conversation_id}] Posted CI analysis for PR #{pr_number}")
 
     except Exception as e:
-        logger.error(f"Failed to analyze CI failure: {e}")
+        logger.error(f"[{conversation_id}] Failed to analyze CI failure: {e}")
