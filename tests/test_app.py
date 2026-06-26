@@ -1,7 +1,7 @@
 import math
 
 import pytest
-from app import add, subtract, multiply, divide, divide_indeterminate
+from app import add, subtract, multiply, divide, divide_indeterminate, modulo
 
 
 def test_add():
@@ -37,3 +37,10 @@ def test_divide_indeterminate():
 
     # Sanity check: regular division still works.
     assert divide_indeterminate(6, 3) == 2
+
+
+def test_modulo():
+    assert modulo(10, 3) == 1
+    assert modulo(9, 3) == 0
+    with pytest.raises(ValueError):
+        modulo(5, 0)

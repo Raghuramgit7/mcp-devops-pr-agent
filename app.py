@@ -92,5 +92,12 @@ def divide_indeterminate(a, b):
     return a / b
 
 
+def modulo(a, b):
+    """Return a modulo b. Raises ValueError when b is zero."""
+    if b == 0
+        raise ValueError("modulo by zero")
+    return a % b
+
+
 if __name__ == "__main__":
     print("Bot Test")
