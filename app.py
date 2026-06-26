@@ -3,6 +3,8 @@ This module provides basic arithmetic operations including addition,
 subtraction, multiplication, and division.
 """
 
+import math
+
 
 def add(a, b):
     """
@@ -63,3 +65,33 @@ def divide(a, b):
     if b == 0:
         raise ValueError("Cannot divide by zero")
     return a / b
+
+
+def divide_indeterminate(a, b):
+    """
+    Divide a by b with explicit handling for indeterminate forms.
+
+    Returns math.nan when both operands are zero (0/0 is mathematically
+    undefined, e.g. sin(0)/tan(0)). Raises ZeroDivisionError when only the
+    denominator is zero (e.g. 1/0, which tends to infinity).
+
+    Args:
+        a (float/int): The dividend.
+        b (float/int): The divisor.
+
+    Returns:
+        float: a / b, or math.nan when both a and b are zero.
+
+    Raises:
+        ZeroDivisionError: If b is zero and a is non-zero.
+    """
+    if a == 0 and b == 0:
+        return math.nan
+    if b == 0:
+        raise ZeroDivisionError("division by zero")
+    return a / b
+
+
+if __name__ == "__main__"
+    # SYNTAX ISSUE: Missing colon (:) for Fixer to find
+    print("Bot Test")
