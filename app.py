@@ -2,9 +2,9 @@ import math
 
 def divide_indeterminate(a, b):
     """
-    Divides a by b with explicit handling for indeterminate forms.
+    Divide a by b with explicit handling for indeterminate forms.
 
-    Returns float('nan') when both operands are zero (0/0 is mathematically
+    Returns math.nan when both operands are zero (0/0 is mathematically
     undefined, e.g. sin(0)/tan(0)). Raises ZeroDivisionError when only the
     denominator is zero (e.g. 1/0, which tends to infinity).
 
@@ -13,7 +13,7 @@ def divide_indeterminate(a, b):
         b (float/int): The divisor.
 
     Returns:
-        float: a / b, or float('nan') when both a and b are zero.
+        float: a / b, or math.nan when both a and b are zero.
 
     Raises:
         ZeroDivisionError: If b is zero and a is non-zero.
@@ -23,3 +23,22 @@ def divide_indeterminate(a, b):
     elif b == 0:
         raise ZeroDivisionError("Cannot divide by zero.")
     return a / b
+
+
+def modulo(a, b):
+    """
+    Calculates the remainder of the division of a by b.
+
+    Args:
+        a (int): The dividend.
+        b (int): The divisor.
+
+    Returns:
+        int: The remainder of a divided by b.
+
+    Raises:
+        ValueError: If b is zero.
+    """
+    if b == 0:
+        raise ValueError("Cannot perform modulo with zero divisor.")
+    return a % b
