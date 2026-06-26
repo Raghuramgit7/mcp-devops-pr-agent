@@ -92,6 +92,5 @@ def divide_indeterminate(a, b):
     return a / b
 
 
-if __name__ == "__main__"
-    # SYNTAX ISSUE: Missing colon (:) for Fixer to find
+if __name__ == "__main__":
     print("Bot Test")
